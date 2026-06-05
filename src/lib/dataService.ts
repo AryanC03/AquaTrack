@@ -26,7 +26,35 @@ const deleteEntry = async (collectionName: string, id: string) => {
 
 // Class Functions
 export const addClass = (data: Omit<ClassEntry, 'id'>) => addEntry('classes', data);
-export const updateClass = (id: string, data: Partial<ClassEntry>) => updateEntry('classes', id, data);
+
+export const updateClass = async (id: string, data: Partial<ClassEntry>) => {
+    const batch = writeBatch(db);
+
+    // 1. Update the class itself
+    const classDocRef = doc(db, 'classes', id);
+    batch.update(classDocRef, data);
+
+    // 2. Find and update the corresponding assessment with the same fields
+    const assessmentsQuery = query(collection(db, 'assessments'), where('classId', '==', id));
+    const assessmentsSnapshot = await getDocs(assessmentsQuery);
+    
+    if (!assessmentsSnapshot.empty) {
+        const assessmentUpdates: any = {};
+        if (data.teacherName !== undefined) assessmentUpdates.teacherName = data.teacherName;
+        if (data.classTime !== undefined) assessmentUpdates.classTime = data.classTime;
+        if (data.level !== undefined) assessmentUpdates.level = data.level;
+        if (data.dayOfWeek !== undefined) assessmentUpdates.dayOfWeek = data.dayOfWeek;
+
+        assessmentsSnapshot.forEach(doc => {
+            if (Object.keys(assessmentUpdates).length > 0) {
+                batch.update(doc.ref, assessmentUpdates);
+            }
+        });
+    }
+
+    // Commit the batch
+    await batch.commit();
+};
 
 export const deleteClass = async (classId: string) => {
     const batch = writeBatch(db);
