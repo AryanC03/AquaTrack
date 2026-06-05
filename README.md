@@ -17,7 +17,7 @@
 
 - **Framework:** Next.js 15 (App Router), React 18, TypeScript.
 - **Styling & UI:** Tailwind CSS, ShadCN UI, Lucide Icons.
-- **Backend & Database:** Firebase (Firestore NoSQL, Firebase Authentication).
+- **Backend & Database:** Firebase (Firestore NoSQL).
 - **Security:** Firebase App Check (reCAPTCHA v3).
 - **Generative AI:** Genkit with Google Gemini 2.0 Flash for summarization and coaching logic.
 - **State Management:** React Context API and custom hooks for real-time Firestore synchronization.

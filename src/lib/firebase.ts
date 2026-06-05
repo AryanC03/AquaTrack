@@ -7,7 +7,6 @@ import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 // Your web app's Firebase configuration for aquatrack-ndo7c
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
@@ -27,11 +26,17 @@ if (typeof window !== 'undefined') {
     // eslint-disable-next-line no-undef
     (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
   }
-  
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!),
-    isTokenAutoRefreshEnabled: true
-  });
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+
+  if (recaptchaSiteKey) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+      isTokenAutoRefreshEnabled: true
+    });
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn('Firebase App Check not initialized: NEXT_PUBLIC_RECAPTCHA_SITE_KEY is missing.');
+  }
 }
 
 
