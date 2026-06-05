@@ -97,6 +97,7 @@ export interface Notice {
 
 export interface AppSettings {
   overdueWeeks: number;
+  dailyOverdueWeeks: Record<DayOfWeek, number>;
 }
 
 

@@ -4,17 +4,27 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
-import type { AppSettings } from '@/lib/types';
+import type { AppSettings, DayOfWeek } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 const SETTINGS_DOC_ID = 'app_settings';
 const DEFAULT_SETTINGS: AppSettings = {
     overdueWeeks: 4,
+    dailyOverdueWeeks: {
+        Monday: 4,
+        Tuesday: 4,
+        Wednesday: 4,
+        Thursday: 4,
+        Friday: 4,
+        Saturday: 4,
+        Sunday: 4,
+    },
 };
 
 interface SettingsContextType {
   settings: AppSettings;
   setOverdueWeeks: (weeks: number) => void;
+  setDailyOverdueWeeks: (day: DayOfWeek, weeks: number) => void;
   isSettingsLoading: boolean;
 }
 
@@ -64,8 +74,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings(newSettings); // Optimistic update
     updateSettingsInFirestore({ overdueWeeks: weeks });
   };
+
+  const setDailyOverdueWeeks = (day: DayOfWeek, weeks: number) => {
+    const newDaily = { ...settings.dailyOverdueWeeks, [day]: weeks };
+    const newSettings = { ...settings, dailyOverdueWeeks: newDaily };
+    setSettings(newSettings);
+    updateSettingsInFirestore({ dailyOverdueWeeks: newDaily });
+  };
   
-  const value = { settings, setOverdueWeeks, isSettingsLoading };
+  const value = { settings, setOverdueWeeks, setDailyOverdueWeeks, isSettingsLoading };
 
   return (
     <SettingsContext.Provider value={value}>

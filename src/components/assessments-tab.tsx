@@ -171,11 +171,13 @@ function AssessmentsContent() {
   const { settings } = useSettings();
   const { toast } = useToast();
 
+  const overdueThresholdWeeks = settings.dailyOverdueWeeks?.[selectedDay] ?? settings.overdueWeeks;
+
   const isDue = (assessment: ClassAssessment) => {
     if (assessment.manualStatus === 'Completed') return false; 
     if (assessment.manualStatus === 'Overdue') return true;
     if (!assessment.assessmentDate) return true; 
-    return isBefore(assessment.assessmentDate.toDate(), subWeeks(new Date(), settings.overdueWeeks));
+    return isBefore(assessment.assessmentDate.toDate(), subWeeks(new Date(), overdueThresholdWeeks));
 }
 
   useEffect(() => {
@@ -293,7 +295,7 @@ function AssessmentsContent() {
             assessments={classAssessments}
             selectedDay={selectedDay}
             onComplete={handleCompletionAction}
-            overdueWeeks={settings.overdueWeeks}
+            overdueWeeks={overdueThresholdWeeks}
             assessors={assessors}
         />
       )}

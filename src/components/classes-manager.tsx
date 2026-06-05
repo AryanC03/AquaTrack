@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
 import { X } from 'lucide-react';
 import { AddClassForm } from './add-class-form';
 import { EditClassForm } from './edit-class-form';
@@ -53,6 +54,7 @@ export function ClassesManager() {
   const [data, setData] = useState<ClassEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Monday');
+  const [searchTerm, setSearchTerm] = useState('');
   const { assessors } = useAssessors();
 
   useEffect(() => {
@@ -119,8 +121,15 @@ export function ClassesManager() {
   };
 
   const filteredData = useMemo(() => {
-    return data.filter(item => item.dayOfWeek === selectedDay);
-  }, [data, selectedDay]);
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return data.filter(item => {
+      const matchesDay = item.dayOfWeek === selectedDay;
+      const matchesSearch = normalizedSearch
+        ? item.teacherName.toLowerCase().includes(normalizedSearch)
+        : true;
+      return matchesDay && matchesSearch;
+    });
+  }, [data, selectedDay, searchTerm]);
 
   const groupedData = useMemo(() => {
     const grouped = filteredData.reduce((acc, entry) => {
@@ -142,23 +151,34 @@ export function ClassesManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sticky top-0 bg-card z-10 py-4 -mt-6 pt-6">
-        <div className="flex-grow">
-            <div className="flex flex-wrap gap-2">
+      <div className="space-y-4 sticky top-0 bg-card z-10 py-4 -mt-6 pt-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-wrap gap-2">
             {daysOfWeek.map(day => (
-                <Button
+              <Button
                 key={day}
                 variant={selectedDay === day ? 'default' : 'outline'}
                 onClick={() => setSelectedDay(day)}
-                >
+              >
                 {day}
-                </Button>
+              </Button>
             ))}
-            </div>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            <ImportClassesButton />
+            <AddClassForm onAddEntry={handleAddEntry} />
+          </div>
         </div>
-        <div className="shrink-0 flex items-center gap-2">
-          <ImportClassesButton />
-          <AddClassForm onAddEntry={handleAddEntry} />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search teachers..."
+            className="min-w-[240px]"
+          />
+          <div className="text-sm text-muted-foreground">
+            {searchTerm ? `Filtering teachers by "${searchTerm}"` : 'Search by teacher name'}
+          </div>
         </div>
       </div>
         

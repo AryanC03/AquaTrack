@@ -113,7 +113,7 @@ export function NoticeBoard() {
                 </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col gap-4">
-                <div className="space-y-3 flex-grow">
+                <div className="space-y-2 flex-grow overflow-y-auto">
                     {isLoading || !selectedDay ? (
                         <div className="space-y-2">
                             <Skeleton className="h-16 w-full" />
@@ -121,15 +121,15 @@ export function NoticeBoard() {
                         </div>
                     ) : notices.length > 0 ? (
                         notices.map(notice => (
-                            <div key={notice.id} className="text-sm p-3 border rounded-md bg-muted/50 relative group">
-                                <p className="font-semibold pr-8">{notice.summary}</p>
-                                <p className="text-muted-foreground text-xs pt-1 pr-8">{notice.noteText}</p>
-                                <p className="text-xs text-muted-foreground/80 mt-2">
+                            <div key={notice.id} className="text-xs p-2 border rounded-md bg-muted/50 relative group">
+                                <p className="font-semibold pr-8 line-clamp-2">{notice.summary}</p>
+                                <p className="text-muted-foreground text-xs pt-1 pr-8 line-clamp-1">{notice.noteText}</p>
+                                <p className="text-xs text-muted-foreground/80 mt-1">
                                     - {notice.asoInitials}, {format(notice.dateAdded.toDate(), 'dd/MM/yy HH:mm')}
                                 </p>
                                  <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive opacity-0 group-hover:opacity-100">
+                                        <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-5 w-5 text-destructive opacity-0 group-hover:opacity-100">
                                             <X className="h-3 w-3" />
                                             <span className="sr-only">Delete notice</span>
                                         </Button>
@@ -152,18 +152,20 @@ export function NoticeBoard() {
                             </div>
                         ))
                     ) : (
-                        <div className="text-center text-muted-foreground py-8">
+                        <div className="text-center text-muted-foreground text-xs py-4">
                             No notices for {selectedDay}.
                         </div>
                     )}
                 </div>
 
-                <div className="mt-auto space-y-3 pt-4 border-t">
+                <div className="space-y-2 pt-2 border-t">
                     <Textarea
                         placeholder={selectedDay ? `Add a new notice for ${selectedDay}...` : 'Select a day to add a notice...'}
                         value={newNoteText}
                         onChange={(e) => setNewNoteText(e.target.value)}
                         disabled={isSubmitting || !selectedDay}
+                        className="resize-none text-xs"
+                        rows={2}
                     />
                     <div className="flex items-center gap-2">
                         <Select
@@ -171,7 +173,7 @@ export function NoticeBoard() {
                             onValueChange={setSelectedAso}
                             disabled={isLoadingAssessors || isSubmitting}
                         >
-                            <SelectTrigger className="w-48">
+                            <SelectTrigger className="w-48 h-8 text-xs">
                                 <SelectValue placeholder="Select your initials" />
                             </SelectTrigger>
                             <SelectContent>
@@ -180,9 +182,9 @@ export function NoticeBoard() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Button onClick={handleAddNotice} disabled={isSubmitting || !selectedDay}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            {isSubmitting ? "Adding..." : "Add Note"}
+                        <Button onClick={handleAddNotice} disabled={isSubmitting || !selectedDay} size="sm" className="text-xs">
+                            <Plus className="mr-1 h-3 w-3" />
+                            {isSubmitting ? "Adding..." : "Add"}
                         </Button>
                     </div>
                 </div>

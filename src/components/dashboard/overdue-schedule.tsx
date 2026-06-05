@@ -7,17 +7,18 @@ import { collection, onSnapshot, query, Timestamp } from 'firebase/firestore';
 import type { ClassAssessment, DayOfWeek } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { isBefore, subWeeks, format, parse, set, startOfHour, startOfMinute } from 'date-fns';
 import { updateClassAssessment, addAssessmentHistory, getAssessmentsForDay } from '@/lib/dataService';
 import { Skeleton } from '../ui/skeleton';
-import { AlertTriangle, Check, Clock } from 'lucide-react';
+import { AlertTriangle, Check, Clock, ChevronDown } from 'lucide-react';
 import { useAssessors } from '@/context/assessor-context';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { LevelIcon } from '../level-icon';
 import { useSettings } from '@/context/settings-context';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 
 const timeStringToDate = (timeStr: string): Date => {
@@ -69,8 +70,9 @@ const getFixedTimeSlots = (dayOfWeek: DayOfWeek): string[] => {
     }
 }
 
-
-const NOT_ASSIGNED_VALUE = "N/A_PLACEHOLDER";
+const getOverdueThresholdForDay = (settings: any, day: DayOfWeek) => {
+    return settings.dailyOverdueWeeks?.[day] ?? settings.overdueWeeks ?? 4;
+};
 
 export function OverdueSchedule() {
     const [overdueAssessments, setOverdueAssessments] = useState<ClassAssessment[]>([]);
@@ -80,6 +82,8 @@ export function OverdueSchedule() {
     const { toast } = useToast();
     const [localAssessors, setLocalAssessors] = useState<Record<string, string>>({});
     const [currentDay, setCurrentDay] = useState<DayOfWeek>('Monday');
+    const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+    const [searchInput, setSearchInput] = useState<Record<string, string>>({});
 
     const isDue = (assessment: ClassAssessment) => {
         if (assessment.manualStatus === 'Completed') return false; 
@@ -91,15 +95,21 @@ export function OverdueSchedule() {
     const fetchAssessments = useCallback(async (day: DayOfWeek) => {
         setIsLoading(true);
         try {
+            const thresholdWeeks = getOverdueThresholdForDay(settings, day);
             const allAssessments = await getAssessmentsForDay(day);
-            const overdue = allAssessments.filter(assessment => isDue(assessment));
+            const overdue = allAssessments.filter((assessment) => {
+                if (assessment.manualStatus === 'Completed') return false;
+                if (assessment.manualStatus === 'Overdue') return true;
+                if (!assessment.assessmentDate) return true;
+                return isBefore(assessment.assessmentDate.toDate(), subWeeks(new Date(), thresholdWeeks));
+            });
             setOverdueAssessments(overdue);
         } catch (error) {
             console.error("Error fetching assessments: ", error);
         } finally {
             setIsLoading(false);
         }
-    }, [settings.overdueWeeks]);
+    }, [settings.dailyOverdueWeeks, settings.overdueWeeks]);
 
     useEffect(() => {
         const todayIndex = new Date().getDay();
@@ -131,17 +141,19 @@ export function OverdueSchedule() {
             if (grid[assessment.teacherName]) {
                  const assessmentDate = timeStringToDate(assessment.classTime);
                  
-                 // Find the correct slot
-                 const slotKey = format(assessmentDate, 'h:mm a');
-
-                 // This logic finds the closest matching time slot if times are not exact
-                 let matchingSlot = timeSlots.find(slot => {
+                 let closestSlot: string | undefined;
+                 let closestDiff = Number.POSITIVE_INFINITY;
+                 timeSlots.forEach(slot => {
                      const slotDate = timeStringToDate(slot);
-                     return slotDate.getHours() === assessmentDate.getHours() && slotDate.getMinutes() === assessmentDate.getMinutes();
+                     const diff = Math.abs(slotDate.getTime() - assessmentDate.getTime());
+                     if (diff < closestDiff) {
+                         closestDiff = diff;
+                         closestSlot = slot;
+                     }
                  });
 
-                 if (matchingSlot && grid[assessment.teacherName][matchingSlot]) {
-                    grid[assessment.teacherName][matchingSlot].push(assessment);
+                 if (closestSlot && grid[assessment.teacherName][closestSlot]) {
+                    grid[assessment.teacherName][closestSlot].push(assessment);
                  }
             }
         });
@@ -149,7 +161,7 @@ export function OverdueSchedule() {
     }, [overdueAssessments, teachers, timeSlots]);
 
     const handleCompletion = async (assessment: ClassAssessment, assessor: string) => {
-        if (!assessor || assessor === NOT_ASSIGNED_VALUE) {
+        if (!assessor || assessor.trim() === '') {
              toast({ variant: "destructive", title: "Assessor Required", description: "Please select an assessor before completing." });
              return;
         }
@@ -199,7 +211,7 @@ export function OverdueSchedule() {
     }
 
     return (
-        <Card>
+        <Card className="h-full">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-destructive">
                     <AlertTriangle />
@@ -207,52 +219,79 @@ export function OverdueSchedule() {
                 </CardTitle>
                  <CardDescription>A schedule view of all assessments that require immediate attention today.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <ScrollArea>
-                    <div className="grid gap-px bg-border" style={{ gridTemplateColumns: `minmax(120px, 1fr) repeat(${timeSlots.length}, minmax(180px, 1fr))` }}>
+            <CardContent className="h-full p-0 flex flex-col overflow-hidden">
+                <ScrollArea className="h-full overflow-x-auto">
+                    <div className="grid gap-0 bg-border min-w-full" style={{ gridTemplateColumns: `minmax(95px, 1fr) repeat(${timeSlots.length}, minmax(160px, 1fr))` }}>
                         {/* Header Row */}
-                        <div className="p-2 bg-card font-semibold sticky left-0 z-10">Teacher</div>
+                        <div className="px-2 py-1 bg-card font-semibold sticky left-0 z-10 text-xs">Teacher</div>
                         {timeSlots.map(slot => (
-                            <div key={slot} className="p-2 bg-card font-semibold flex items-center gap-1.5 text-sm">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                {slot}
+                            <div key={slot} className="px-1 py-0.5 bg-card font-semibold flex items-center gap-0.5 text-xs">
+                                <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+                                <span className="truncate">{slot}</span>
                             </div>
                         ))}
                         
                         {/* Data Rows */}
                         {teachers.map(teacher => (
                             <React.Fragment key={teacher}>
-                                <div className="p-2 bg-card font-semibold sticky left-0 z-10 text-sm">{teacher}</div>
+                                <div className="px-2 py-1 bg-card font-semibold sticky left-0 z-10 text-xs truncate">{teacher}</div>
                                 {timeSlots.map(slot => {
                                     const assessmentsInSlot = scheduleGrid[teacher]?.[slot] || [];
                                     return (
-                                        <div key={`${teacher}-${slot}`} className={cn("p-2 bg-card min-h-[100px]", assessmentsInSlot.length > 0 && "bg-destructive/10")}>
+                                        <div key={`${teacher}-${slot}`} className={cn("p-0.5 bg-card min-h-[28px]", assessmentsInSlot.length > 0 && "bg-destructive/10")}>
                                             {assessmentsInSlot.map(assessment => (
-                                                <div key={assessment.id} className="space-y-2 mb-2 p-2 rounded border border-destructive/20 bg-card">
-                                                    <div className="flex items-center gap-2 font-semibold text-xs">
-                                                        <LevelIcon levelName={assessment.level} className="h-4 w-4"/>
-                                                        {assessment.level}
+                                                <div key={assessment.id} className="space-y-1 mb-1 p-1 rounded border border-destructive/20 bg-card">
+                                                    <div className="flex items-center gap-0.5 font-semibold text-xs">
+                                                        <LevelIcon levelName={assessment.level} className="h-3 w-3"/>
+                                                        <span className="truncate">{assessment.level}</span>
                                                     </div>
-                                                    <div className="flex flex-col gap-2">
-                                                        <Select
-                                                            value={localAssessors[assessment.id] || NOT_ASSIGNED_VALUE}
-                                                            onValueChange={(value) => setLocalAssessors(prev => ({...prev, [assessment.id]: value}))}
-                                                        >
-                                                            <SelectTrigger className="h-8 text-xs">
-                                                                <SelectValue placeholder="Select ASO" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value={NOT_ASSIGNED_VALUE} disabled>Select ASO</SelectItem>
-                                                                {assessors.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                                                            </SelectContent>
-                                                        </Select>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <Popover open={openDropdown === assessment.id} onOpenChange={(open) => {
+                                                            setOpenDropdown(open ? assessment.id : null);
+                                                            if (!open) setSearchInput(prev => ({...prev, [assessment.id]: ''}));
+                                                        }}>
+                                                            <PopoverTrigger asChild>
+                                                                <Button variant="outline" className="h-5 text-xs py-0 px-1 w-full justify-between">
+                                                                    <span className="truncate">{localAssessors[assessment.id] || 'ASO'}</span>
+                                                                    <ChevronDown className="h-2.5 w-2.5 ml-0.5 opacity-50" />
+                                                                </Button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-32 p-0">
+                                                                <div className="p-1 space-y-1">
+                                                                    <Input
+                                                                        placeholder="Search..."
+                                                                        value={searchInput[assessment.id] || ''}
+                                                                        onChange={(e) => setSearchInput(prev => ({...prev, [assessment.id]: e.target.value}))}
+                                                                        className="h-6 text-xs px-2"
+                                                                        autoFocus
+                                                                    />
+                                                                    <div className="space-y-0.5 max-h-32 overflow-y-auto">
+                                                                        {assessors
+                                                                            .filter(a => a.toLowerCase().includes((searchInput[assessment.id] || '').toLowerCase()))
+                                                                            .map(a => (
+                                                                                <Button
+                                                                                    key={a}
+                                                                                    variant={localAssessors[assessment.id] === a ? 'default' : 'ghost'}
+                                                                                    className="h-5 text-xs w-full justify-start px-1"
+                                                                                    onClick={() => {
+                                                                                        setLocalAssessors(prev => ({...prev, [assessment.id]: a}));
+                                                                                        setOpenDropdown(null);
+                                                                                    }}
+                                                                                >
+                                                                                    {a}
+                                                                                </Button>
+                                                                            ))
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
                                                         <Button 
                                                             size="sm"
-                                                            className="h-8 text-xs"
+                                                            className="h-5 text-xs py-0 px-1"
                                                             onClick={() => handleCompletion(assessment, localAssessors[assessment.id])}
                                                         >
-                                                            <Check className="h-3 w-3 mr-1.5"/>
-                                                            Complete
+                                                            <Check className="h-2.5 w-2.5"/>
                                                         </Button>
                                                     </div>
                                                 </div>

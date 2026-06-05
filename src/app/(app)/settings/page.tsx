@@ -24,6 +24,7 @@ import { AppLayout } from '@/components/dashboard/app-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { resetAllAssessments } from '@/lib/dataService';
+import type { DayOfWeek } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { Slider } from '@/components/ui/slider';
@@ -36,7 +37,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 function SettingsContent() {
   const { assessors, addAssessor, removeAssessor, isLoading } = useAssessors();
-  const { settings, setOverdueWeeks, isSettingsLoading } = useSettings();
+  const { settings, setDailyOverdueWeeks, isSettingsLoading } = useSettings();
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
 
@@ -46,6 +47,8 @@ function SettingsContent() {
       initials: '',
     },
   });
+
+const daysOfWeek: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   const onSubmit = (data: FormValues) => {
     addAssessor(data.initials.toUpperCase());
@@ -81,30 +84,31 @@ function SettingsContent() {
             </CardHeader>
             <CardContent>
                  <div className="space-y-4">
-                    <Label htmlFor="overdue-weeks">Overdue Threshold</Label>
-                    <div className="flex items-center gap-4">
-                        {isSettingsLoading ? (
-                            <Skeleton className="h-6 w-full" />
-                        ) : (
-                            <>
-                            <Slider
-                                id="overdue-weeks"
-                                min={1}
-                                max={12}
-                                step={1}
-                                value={[settings.overdueWeeks]}
-                                onValueChange={(value) => setOverdueWeeks(value[0])}
-                                className="flex-1"
-                            />
-                            <div className="font-bold text-lg w-12 text-center">
-                                {settings.overdueWeeks}
-                            </div>
-                            </>
-                        )}
-                        <span className="text-muted-foreground">weeks</span>
-                    </div>
+                    <Label>Overdue Thresholds</Label>
+                    {isSettingsLoading ? (
+                        <Skeleton className="h-6 w-full" />
+                    ) : (
+                        <div className="grid gap-3 md:grid-cols-2">
+                            {daysOfWeek.map((day) => (
+                                <div key={day} className="rounded-lg border border-border p-3">
+                                    <div className="flex items-center justify-between text-sm font-medium">
+                                        <span>{day}</span>
+                                        <span>{settings.dailyOverdueWeeks[day]}w</span>
+                                    </div>
+                                    <Slider
+                                        min={1}
+                                        max={12}
+                                        step={1}
+                                        value={[settings.dailyOverdueWeeks[day]]}
+                                        onValueChange={(value) => setDailyOverdueWeeks(day, value[0])}
+                                        className="mt-2"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     <p className="text-sm text-muted-foreground">
-                        Assessments will be automatically marked as overdue after this period.
+                        Set an overdue threshold in weeks for each day of the week.
                     </p>
                 </div>
             </CardContent>
